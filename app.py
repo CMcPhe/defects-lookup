@@ -5,28 +5,27 @@ from github import Github
 import io
 
 # ---------------------------
-# 🔹 Config
+# Config
 # ---------------------------
 DEFECT_FILE = "Defect Lookup.xlsx"
 FEEDBACK_FILE = "feedback_log.xlsx"
 GITHUB_REPO = "your_org_or_username/your_repo_name"  # Replace with your repo
 
 # ---------------------------
-# 🔹 Helper Functions
+# Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
-    """Load defects Excel file from repo"""
+    """Load defects Excel file safely, handle missing columns and types"""
     try:
         df = pd.read_excel(filename)
-        # Convert all column headers to string and strip whitespace
-        df.columns = [str(col).strip() for col in df.columns]
+        df.columns = [str(col).strip() for col in df.columns]  # handle datetime headers
         return df
     except Exception as e:
         st.error(f"Error loading defects file: {e}")
         st.stop()
 
 def get_version(filename=DEFECT_FILE):
-    """Read update date from Excel cell B1"""
+    """Read update date from Excel cell B1 safely"""
     try:
         df_version = pd.read_excel(filename, sheet_name=0, nrows=1, usecols="B", header=None)
         version = df_version.iloc[0,0]
@@ -35,14 +34,30 @@ def get_version(filename=DEFECT_FILE):
         return "unknown"
 
 def get_defects_for_setup(df, setup_number, top_n=6):
-    """Return top N defects for setup (non-case-sensitive)"""
+    """Return top N defects for a setup, safely even if columns are missing"""
     setup_number = str(setup_number).lower()
-    filtered = df[df["Setup Number"].astype(str).str.lower() == setup_number]
-    if "Frequency" in filtered.columns:
-        freq_order = {"High": 3, "Medium": 2, "Low": 1}
-        filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
-        filtered = filtered.sort_values(by="FreqOrder", ascending=False).head(top_n)
-    return filtered[["Defect Name", "Frequency", "Preventative Suggestion"]]
+
+    # Ensure expected columns exist
+    expected_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
+    for col in expected_cols:
+        if col not in df.columns:
+            df[col] = ""
+
+    # Convert Setup Number column to string
+    df["Setup Number"] = df["Setup Number"].astype(str)
+
+    # Filter by setup number
+    filtered = df[df["Setup Number"].str.lower() == setup_number]
+
+    if filtered.empty:
+        return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
+
+    # Handle Frequency sorting
+    freq_order = {"High": 3, "Medium": 2, "Low": 1}
+    filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
+    filtered = filtered.sort_values(by="FreqOrder", ascending=False)
+
+    return filtered.head(top_n)[["Defect Name", "Frequency", "Preventative Suggestion"]]
 
 def push_feedback_to_github(df_feedback):
     """Push feedback DataFrame to GitHub as Excel"""
@@ -84,7 +99,7 @@ def submit_feedback(setup_number, operator, feedback_text):
     st.success("Feedback submitted successfully!")
 
 # ---------------------------
-# 🔹 Streamlit App
+# Streamlit App
 # ---------------------------
 def main():
     st.set_page_config(page_title="Production Line App", layout="wide")
@@ -136,7 +151,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
