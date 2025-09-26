@@ -5,20 +5,21 @@ from github import Github
 import io
 
 # ---------------------------
-# Config
+# 🔹 Config
 # ---------------------------
 DEFECT_FILE = "Defect Lookup.xlsx"
 FEEDBACK_FILE = "feedback_log.xlsx"
-GITHUB_REPO = "your_org_or_username/your_repo_name"  # replace with your repo
+GITHUB_REPO = "your_org_or_username/your_repo_name"  # Replace with your repo
 
 # ---------------------------
-# Helper Functions
+# 🔹 Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
     """Load defects Excel file from repo"""
     try:
         df = pd.read_excel(filename)
-        df.columns = [col.strip() for col in df.columns]
+        # Convert all column headers to string and strip whitespace
+        df.columns = [str(col).strip() for col in df.columns]
         return df
     except Exception as e:
         st.error(f"Error loading defects file: {e}")
@@ -27,7 +28,7 @@ def load_defects(filename=DEFECT_FILE):
 def get_version(filename=DEFECT_FILE):
     """Read update date from Excel cell B1"""
     try:
-        df_version = pd.read_excel(filename, sheet_name=0, nrows=1, usecols="B")
+        df_version = pd.read_excel(filename, sheet_name=0, nrows=1, usecols="B", header=None)
         version = df_version.iloc[0,0]
         return str(version)
     except:
@@ -37,9 +38,10 @@ def get_defects_for_setup(df, setup_number, top_n=6):
     """Return top N defects for setup (non-case-sensitive)"""
     setup_number = str(setup_number).lower()
     filtered = df[df["Setup Number"].astype(str).str.lower() == setup_number]
-    freq_order = {"High": 3, "Medium": 2, "Low": 1}
-    filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
-    filtered = filtered.sort_values(by="FreqOrder", ascending=False).head(top_n)
+    if "Frequency" in filtered.columns:
+        freq_order = {"High": 3, "Medium": 2, "Low": 1}
+        filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
+        filtered = filtered.sort_values(by="FreqOrder", ascending=False).head(top_n)
     return filtered[["Defect Name", "Frequency", "Preventative Suggestion"]]
 
 def push_feedback_to_github(df_feedback):
@@ -82,7 +84,7 @@ def submit_feedback(setup_number, operator, feedback_text):
     st.success("Feedback submitted successfully!")
 
 # ---------------------------
-# Streamlit App
+# 🔹 Streamlit App
 # ---------------------------
 def main():
     st.set_page_config(page_title="Production Line App", layout="wide")
@@ -134,6 +136,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
