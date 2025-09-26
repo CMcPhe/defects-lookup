@@ -4,13 +4,13 @@ from datetime import datetime
 import os
 
 # ---------------------------
-# 🔹 Constants / Filenames
+# Constants / Filenames
 # ---------------------------
 DEFECT_FILE = "Defect Lookup.xlsx"
 FEEDBACK_FILE = "feedback_log.csv"
 
 # ---------------------------
-# 🔹 Helper Functions
+# Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
     """Load defects Excel file"""
@@ -55,7 +55,7 @@ def submit_feedback(setup_number, operator, feedback_text):
     st.success("Feedback submitted successfully!")
 
 # ---------------------------
-# 🔹 Streamlit App
+# Streamlit App
 # ---------------------------
 def main():
     st.set_page_config(page_title="Production Line App", layout="wide")
@@ -107,4 +107,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
