@@ -29,10 +29,12 @@ def load_defects(filename=DEFECT_FILE):
         # Clean Setup Number column for robust matching
         df["Setup Number"] = (
             df["Setup Number"].astype(str)
-            .str.strip()
-            .str.replace(r"\s+", "", regex=True)
-            .str.lower()
+            .str.replace(r"\s+", "", regex=True)  # remove all whitespace
+            .str.upper()
         )
+
+        # Debug: show available setup numbers in console/log
+        print("Available setups:", df["Setup Number"].unique())
 
         return df
     except Exception as e:
@@ -50,7 +52,7 @@ def get_version(filename=DEFECT_FILE):
 
 def get_defects_for_setup(df, setup_number, top_n=6):
     """Return top N defects for a setup, safely even if columns are missing"""
-    setup_number_input = setup_number.strip().replace(" ", "").lower()
+    setup_number_input = setup_number.strip().replace(" ", "").upper()
 
     # Filter by setup number
     filtered = df[df["Setup Number"] == setup_number_input]
@@ -157,7 +159,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
