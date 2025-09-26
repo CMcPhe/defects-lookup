@@ -18,7 +18,7 @@ def load_defects(filename=DEFECT_FILE):
     """Load defects Excel file safely, handle missing columns and types"""
     try:
         df = pd.read_excel(filename)
-        df.columns = [str(col).strip() for col in df.columns]  # handle datetime headers
+        df.columns = [str(col).strip() for col in df.columns]
 
         # Ensure expected columns exist
         expected_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
@@ -26,15 +26,8 @@ def load_defects(filename=DEFECT_FILE):
             if col not in df.columns:
                 df[col] = ""
 
-        # Clean Setup Number column for robust matching
-        df["Setup Number"] = (
-            df["Setup Number"].astype(str)
-            .str.replace(r"\s+", "", regex=True)  # remove all whitespace
-            .str.upper()
-        )
-
-        # Debug: show available setup numbers in console/log
-        print("Available setups:", df["Setup Number"].unique())
+        # Legacy case-insensitive cleaning (works like original version)
+        df["Setup Number"] = df["Setup Number"].astype(str).str.strip().str.lower()
 
         return df
     except Exception as e:
@@ -51,16 +44,14 @@ def get_version(filename=DEFECT_FILE):
         return "unknown"
 
 def get_defects_for_setup(df, setup_number, top_n=6):
-    """Return top N defects for a setup, safely even if columns are missing"""
-    setup_number_input = setup_number.strip().replace(" ", "").upper()
-
-    # Filter by setup number
+    """Return top N defects for a setup"""
+    setup_number_input = setup_number.strip().lower()
     filtered = df[df["Setup Number"] == setup_number_input]
 
     if filtered.empty:
         return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
 
-    # Handle Frequency sorting
+    # Optional: sort by Frequency if present
     freq_order = {"High": 3, "Medium": 2, "Low": 1}
     filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
     filtered = filtered.sort_values(by="FreqOrder", ascending=False)
