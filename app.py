@@ -5,14 +5,14 @@ st.set_page_config(page_title="Production Line Defect Lookup", layout="wide")
 st.title("📋 Production Line Defect Lookup")
 
 # ---------------------------
-# 🔹 Load Excel directly from repo
+# Load Excel directly from repo
 # ---------------------------
 EXCEL_FILE = "defects.xlsx"  # Must be in same folder as app.py
 df = pd.read_excel(EXCEL_FILE)
 df.columns = [col.strip() for col in df.columns]  # Clean column names
 
 # ---------------------------
-# 🔹 Input setup number
+# Input setup number
 # ---------------------------
 setup_number = st.text_input("Enter your setup number:")
 
@@ -33,3 +33,4 @@ if setup_number:
         filtered = filtered.sort_values(by="FreqOrder", ascending=False).head(6)
 
         st.dataframe(filtered[["Defect Name", "Frequency", "Preventative Suggestion"]])
+
