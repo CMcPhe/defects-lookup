@@ -19,6 +19,21 @@ def load_defects(filename=DEFECT_FILE):
     try:
         df = pd.read_excel(filename)
         df.columns = [str(col).strip() for col in df.columns]  # handle datetime headers
+
+        # Ensure expected columns exist
+        expected_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
+        for col in expected_cols:
+            if col not in df.columns:
+                df[col] = ""
+
+        # Clean Setup Number column for robust matching
+        df["Setup Number"] = (
+            df["Setup Number"].astype(str)
+            .str.strip()
+            .str.replace(r"\s+", "", regex=True)
+            .str.lower()
+        )
+
         return df
     except Exception as e:
         st.error(f"Error loading defects file: {e}")
@@ -35,19 +50,10 @@ def get_version(filename=DEFECT_FILE):
 
 def get_defects_for_setup(df, setup_number, top_n=6):
     """Return top N defects for a setup, safely even if columns are missing"""
-    setup_number = str(setup_number).lower()
-
-    # Ensure expected columns exist
-    expected_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
-    for col in expected_cols:
-        if col not in df.columns:
-            df[col] = ""
-
-    # Convert Setup Number column to string
-    df["Setup Number"] = df["Setup Number"].astype(str)
+    setup_number_input = setup_number.strip().replace(" ", "").lower()
 
     # Filter by setup number
-    filtered = df[df["Setup Number"].str.lower() == setup_number]
+    filtered = df[df["Setup Number"] == setup_number_input]
 
     if filtered.empty:
         return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
@@ -78,9 +84,9 @@ def push_feedback_to_github(df_feedback):
 def submit_feedback(setup_number, operator, feedback_text):
     """Submit feedback and push to GitHub"""
     entry = {
-        "Setup Number": setup_number,
-        "Operator": operator,
-        "Feedback": feedback_text,
+        "Setup Number": setup_number.strip(),
+        "Operator": operator.strip(),
+        "Feedback": feedback_text.strip(),
         "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
