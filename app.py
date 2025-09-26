@@ -1,25 +1,31 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
+from github import Github
+import io
 
 # ---------------------------
-# Constants / Filenames
+# Config
 # ---------------------------
 DEFECT_FILE = "Defect Lookup.xlsx"
-FEEDBACK_FILE = "feedback_log.csv"
+FEEDBACK_FILE = "feedback_log.xlsx"
+GITHUB_REPO = "your_org_or_username/your_repo_name"  # replace with your repo
 
 # ---------------------------
 # Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
-    """Load defects Excel file"""
-    df = pd.read_excel(filename)
-    df.columns = [col.strip() for col in df.columns]  # Clean column names
-    return df
+    """Load defects Excel file from repo"""
+    try:
+        df = pd.read_excel(filename)
+        df.columns = [col.strip() for col in df.columns]
+        return df
+    except Exception as e:
+        st.error(f"Error loading defects file: {e}")
+        st.stop()
 
 def get_version(filename=DEFECT_FILE):
-    """Read the update date from Excel cell B1"""
+    """Read update date from Excel cell B1"""
     try:
         df_version = pd.read_excel(filename, sheet_name=0, nrows=1, usecols="B")
         version = df_version.iloc[0,0]
@@ -28,30 +34,51 @@ def get_version(filename=DEFECT_FILE):
         return "unknown"
 
 def get_defects_for_setup(df, setup_number, top_n=6):
-    """Filter defects for a given setup and return top N (non-case-sensitive)"""
-    setup_number = str(setup_number).lower()  # convert input to lowercase
+    """Return top N defects for setup (non-case-sensitive)"""
+    setup_number = str(setup_number).lower()
     filtered = df[df["Setup Number"].astype(str).str.lower() == setup_number]
-    
     freq_order = {"High": 3, "Medium": 2, "Low": 1}
     filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
     filtered = filtered.sort_values(by="FreqOrder", ascending=False).head(top_n)
-    
     return filtered[["Defect Name", "Frequency", "Preventative Suggestion"]]
 
+def push_feedback_to_github(df_feedback):
+    """Push feedback DataFrame to GitHub as Excel"""
+    token = st.secrets["GITHUB_TOKEN"]
+    g = Github(token)
+    repo = g.get_repo(GITHUB_REPO)
+
+    with io.BytesIO() as output:
+        df_feedback.to_excel(output, index=False)
+        data = output.getvalue()
+
+    try:
+        contents = repo.get_contents(FEEDBACK_FILE)
+        repo.update_file(FEEDBACK_FILE, "Update feedback log", data, contents.sha)
+    except:
+        repo.create_file(FEEDBACK_FILE, "Create feedback log", data)
+
 def submit_feedback(setup_number, operator, feedback_text):
-    """Append feedback to the CSV log"""
+    """Submit feedback and push to GitHub"""
     entry = {
         "Setup Number": setup_number,
         "Operator": operator,
         "Feedback": feedback_text,
         "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
-    if os.path.exists(FEEDBACK_FILE):
-        df_feedback = pd.read_csv(FEEDBACK_FILE)
+
+    # Load existing feedback from GitHub
+    try:
+        token = st.secrets["GITHUB_TOKEN"]
+        g = Github(token)
+        repo = g.get_repo(GITHUB_REPO)
+        contents = repo.get_contents(FEEDBACK_FILE)
+        df_feedback = pd.read_excel(io.BytesIO(contents.decoded_content))
         df_feedback = pd.concat([df_feedback, pd.DataFrame([entry])], ignore_index=True)
-    else:
+    except:
         df_feedback = pd.DataFrame([entry])
-    df_feedback.to_csv(FEEDBACK_FILE, index=False)
+
+    push_feedback_to_github(df_feedback)
     st.success("Feedback submitted successfully!")
 
 # ---------------------------
@@ -64,10 +91,10 @@ def main():
     # Landing page option
     option = st.radio("Select an option:", ["Lookup Setup", "Setup Feedback"])
 
-    # Load defects data
+    # Load defects
     df = load_defects()
     updated_date = get_version()
-    
+
     if option == "Lookup Setup":
         st.subheader("Lookup Setup Defects")
         setup_number = st.text_input("Enter your setup number:")
@@ -79,7 +106,7 @@ def main():
                 st.subheader(f"Top {len(top_defects)} Most Common Defects for Setup {setup_number}")
                 st.dataframe(top_defects)
 
-        # Optional feedback at the bottom
+        # Optional feedback at bottom
         st.markdown("---")
         st.subheader("Submit Feedback for this Setup")
         operator = st.text_input("Operator Name:", key="bottom_operator")
@@ -101,11 +128,13 @@ def main():
             else:
                 submit_feedback(setup_number, operator, feedback_text)
 
-    # Show updated date at the bottom of the landing page
+    # Show updated date
     st.markdown("---")
     st.markdown(f"*Updated: {updated_date}*")
 
 if __name__ == "__main__":
     main()
+
+
 
 
