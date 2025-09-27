@@ -15,7 +15,7 @@ GITHUB_REPO = "your_org_or_username/your_repo_name"  # Replace with your repo
 # Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
-    """Always reload defects Excel file fresh (no caching). Handles missing columns."""
+    """Always reload defects Excel file fresh. Handles missing columns."""
     try:
         df = pd.read_excel(filename)
         df.columns = [str(col).strip() for col in df.columns]
@@ -26,11 +26,11 @@ def load_defects(filename=DEFECT_FILE):
             if col not in df.columns:
                 df[col] = ""
 
-        # Legacy case-insensitive cleaning (works like original version)
+        # Normalize setup numbers for case-insensitive lookup
         df["Setup Number"] = df["Setup Number"].astype(str).str.strip().str.lower()
 
-        # Debug: see available setups
-        st.write("Available setup numbers in defects file:", df["Setup Number"].tolist())
+        # 🔹 Debug: Show how many setups loaded
+        st.info(f"✅ Loaded {len(df)} setups from {filename}")
 
         return df
     except Exception as e:
@@ -41,7 +41,7 @@ def get_version(filename=DEFECT_FILE):
     """Read update date from Excel cell B1 safely"""
     try:
         df_version = pd.read_excel(filename, sheet_name=0, nrows=1, usecols="B", header=None)
-        version = df_version.iloc[0,0]
+        version = df_version.iloc[0, 0]
         return str(version)
     except:
         return "unknown"
@@ -49,6 +49,11 @@ def get_version(filename=DEFECT_FILE):
 def get_defects_for_setup(df, setup_number, top_n=6):
     """Return top N defects for a setup"""
     setup_number_input = setup_number.strip().lower()
+
+    # Debug: Show first 5 setup numbers so we can confirm matches
+    st.write("🔍 Debug - First few setup numbers:", df["Setup Number"].head().tolist())
+    st.write("🔍 Debug - Your input:", setup_number_input)
+
     filtered = df[df["Setup Number"] == setup_number_input]
 
     if filtered.empty:
@@ -148,4 +153,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
