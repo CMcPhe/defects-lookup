@@ -15,7 +15,7 @@ GITHUB_REPO = "your_org_or_username/your_repo_name"  # Replace with your repo
 # Helper Functions
 # ---------------------------
 def load_defects(filename=DEFECT_FILE):
-    """Load defects Excel file safely, handle missing columns and types"""
+    """Always reload defects Excel file fresh (no caching). Handles missing columns."""
     try:
         df = pd.read_excel(filename)
         df.columns = [str(col).strip() for col in df.columns]
@@ -28,6 +28,9 @@ def load_defects(filename=DEFECT_FILE):
 
         # Legacy case-insensitive cleaning (works like original version)
         df["Setup Number"] = df["Setup Number"].astype(str).str.strip().str.lower()
+
+        # Debug: see available setups
+        st.write("Available setup numbers in defects file:", df["Setup Number"].tolist())
 
         return df
     except Exception as e:
@@ -51,7 +54,6 @@ def get_defects_for_setup(df, setup_number, top_n=6):
     if filtered.empty:
         return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
 
-    # Optional: sort by Frequency if present
     freq_order = {"High": 3, "Medium": 2, "Low": 1}
     filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
     filtered = filtered.sort_values(by="FreqOrder", ascending=False)
@@ -83,7 +85,6 @@ def submit_feedback(setup_number, operator, feedback_text):
         "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
-    # Load existing feedback from GitHub
     try:
         token = st.secrets["GITHUB_TOKEN"]
         g = Github(token)
@@ -104,10 +105,9 @@ def main():
     st.set_page_config(page_title="Production Line App", layout="wide")
     st.title("📋 Production Line App")
 
-    # Landing page option
     option = st.radio("Select an option:", ["Lookup Setup", "Setup Feedback"])
 
-    # Load defects
+    # Always reload defects fresh
     df = load_defects()
     updated_date = get_version()
 
@@ -122,7 +122,6 @@ def main():
                 st.subheader(f"Top {len(top_defects)} Most Common Defects for Setup {setup_number}")
                 st.dataframe(top_defects)
 
-        # Optional feedback at bottom
         st.markdown("---")
         st.subheader("Submit Feedback for this Setup")
         operator = st.text_input("Operator Name:", key="bottom_operator")
@@ -144,9 +143,9 @@ def main():
             else:
                 submit_feedback(setup_number, operator, feedback_text)
 
-    # Show updated date
     st.markdown("---")
     st.markdown(f"*Updated: {updated_date}*")
 
 if __name__ == "__main__":
     main()
+
