@@ -8,7 +8,8 @@ from datetime import datetime
 # -----------------------------
 def load_defects(file_path):
     try:
-        df = pd.read_excel(file_path)
+        # Main table: headers on row 2
+        df = pd.read_excel(file_path, header=1)
 
         # Schema check
         required_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
@@ -17,12 +18,9 @@ def load_defects(file_path):
                 st.error(f"❌ Missing required column: {col}")
                 return None, None
 
-        # Read version/date if present
-        version = "Unknown"
-        if "Version" in df.columns:
-            version = df["Version"].dropna().astype(str).iloc[0]
-        elif "B1" in df:  # fallback
-            version = df.iloc[0, 1]
+        # Grab version/date from first row, column B
+        raw_version = pd.read_excel(file_path, header=None).iloc[0, 1]
+        version = str(raw_version) if pd.notna(raw_version) else "Unknown"
 
         return df, version
     except Exception as e:
@@ -35,17 +33,15 @@ def load_defects(file_path):
 def get_defects_for_setup(df, setup_number, top_n=6):
     setup_number_input = setup_number.strip().lower()
 
-    # Debug: show first 10 raw setup numbers
-    st.write("🔍 Debug - First 10 setup numbers in file:", 
+    # Debug: first 10 setup numbers
+    st.write("🔍 Debug - First 10 setup numbers:", 
              [repr(x) for x in df["Setup Number"].head(10).tolist()])
-
-    # Debug: show your input clearly
     st.write("🔍 Debug - Your input:", repr(setup_number_input))
 
-    # Normalize
+    # Normalize for case-insensitive match
     df["SetupNorm"] = df["Setup Number"].astype(str).str.strip().str.lower()
 
-    # Debug: unique normalized values
+    # Debug: unique normalized setup numbers
     st.write("🔍 Debug - Unique normalized setup numbers:", 
              [repr(x) for x in df["SetupNorm"].unique().tolist()])
 
@@ -54,10 +50,6 @@ def get_defects_for_setup(df, setup_number, top_n=6):
 
     if filtered.empty:
         st.error(f"❌ Debug - No rows matched '{setup_number_input}'")
-    else:
-        st.write("✅ Debug - Matching rows found:", filtered)
-
-    if filtered.empty:
         return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
 
     # Sort by frequency
@@ -94,7 +86,6 @@ def main():
 
     file_path = "Defect Lookup.xlsx"
     df, version = load_defects(file_path)
-
     if df is None:
         st.stop()
 
@@ -125,4 +116,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
