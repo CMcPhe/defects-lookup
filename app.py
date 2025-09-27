@@ -29,7 +29,7 @@ def load_defects(filename=DEFECT_FILE):
         # Normalize setup numbers for case-insensitive lookup
         df["Setup Number"] = df["Setup Number"].astype(str).str.strip().str.lower()
 
-        # 🔹 Debug: Show how many setups loaded
+        # Debug: Show how many setups loaded
         st.info(f"✅ Loaded {len(df)} setups from {filename}")
 
         return df
@@ -50,8 +50,8 @@ def get_defects_for_setup(df, setup_number, top_n=6):
     """Return top N defects for a setup"""
     setup_number_input = setup_number.strip().lower()
 
-    # Debug: Show first 5 setup numbers so we can confirm matches
-    st.write("🔍 Debug - First few setup numbers:", df["Setup Number"].head().tolist())
+    # Debug: Show all setup numbers and the input
+    st.write("🔍 Debug - All setup numbers in file:", df["Setup Number"].tolist())
     st.write("🔍 Debug - Your input:", setup_number_input)
 
     filtered = df[df["Setup Number"] == setup_number_input]
