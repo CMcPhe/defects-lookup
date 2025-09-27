@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime
+from github import Github
+import io
 
 # -----------------------------
 # Load defects file
@@ -28,31 +29,16 @@ def load_defects(file_path):
         return None, None
 
 # -----------------------------
-# Lookup function with debug
+# Defect lookup
 # -----------------------------
 def get_defects_for_setup(df, setup_number, top_n=6):
     setup_number_input = setup_number.strip().lower()
-
-    # Debug: first 10 setup numbers
-    st.write("🔍 Debug - First 10 setup numbers:", 
-             [repr(x) for x in df["Setup Number"].head(10).tolist()])
-    st.write("🔍 Debug - Your input:", repr(setup_number_input))
-
-    # Normalize for case-insensitive match
     df["SetupNorm"] = df["Setup Number"].astype(str).str.strip().str.lower()
-
-    # Debug: unique normalized setup numbers
-    st.write("🔍 Debug - Unique normalized setup numbers:", 
-             [repr(x) for x in df["SetupNorm"].unique().tolist()])
-
-    # Filter
     filtered = df[df["SetupNorm"] == setup_number_input]
 
     if filtered.empty:
-        st.error(f"❌ Debug - No rows matched '{setup_number_input}'")
         return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
 
-    # Sort by frequency
     freq_order = {"High": 3, "Medium": 2, "Low": 1}
     filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
     filtered = filtered.sort_values(by="FreqOrder", ascending=False)
@@ -60,9 +46,9 @@ def get_defects_for_setup(df, setup_number, top_n=6):
     return filtered.head(top_n)[["Defect Name", "Frequency", "Preventative Suggestion"]]
 
 # -----------------------------
-# Feedback logging
+# Feedback logging to GitHub
 # -----------------------------
-def log_feedback(setup_number, operator_name, feedback_text, log_file="feedback_log.xlsx"):
+def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name, log_file, token):
     entry = {
         "Setup Number": setup_number,
         "Operator": operator_name,
@@ -70,13 +56,22 @@ def log_feedback(setup_number, operator_name, feedback_text, log_file="feedback_
         "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
-    if os.path.exists(log_file):
-        existing = pd.read_excel(log_file)
-        updated = pd.concat([existing, pd.DataFrame([entry])], ignore_index=True)
-    else:
-        updated = pd.DataFrame([entry])
+    g = Github(token)
+    repo = g.get_repo(repo_name)
 
-    updated.to_excel(log_file, index=False)
+    try:
+        contents = repo.get_contents(log_file)
+        existing = pd.read_excel(io.BytesIO(contents.decoded_content))
+        updated = pd.concat([existing, pd.DataFrame([entry])], ignore_index=True)
+        with io.BytesIO() as output:
+            updated.to_excel(output, index=False)
+            repo.update_file(log_file, f"Update feedback log ({datetime.now().isoformat()})", output.getvalue(), contents.sha)
+    except:
+        # File doesn't exist yet
+        df_feedback = pd.DataFrame([entry])
+        with io.BytesIO() as output:
+            df_feedback.to_excel(output, index=False)
+            repo.create_file(log_file, f"Create feedback log ({datetime.now().isoformat()})", output.getvalue())
 
 # -----------------------------
 # Streamlit App
@@ -90,6 +85,11 @@ def main():
         st.stop()
 
     st.sidebar.success(f"✅ Data last updated: {version}")
+
+    # GitHub repo info from secrets
+    GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+    REPO_NAME = st.secrets["REPO_NAME"]         # e.g., "your_org/your_repo"
+    LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
 
     # Landing page options
     option = st.radio("Choose an option:", ["Lookup Setup", "Setup Feedback"])
@@ -109,7 +109,8 @@ def main():
         feedback_text = st.text_area("Enter your feedback here:")
         if st.button("Submit Feedback"):
             if operator_name and feedback_text:
-                log_feedback(setup_number, operator_name, feedback_text)
+                log_feedback_to_github(setup_number, operator_name, feedback_text,
+                                       REPO_NAME, LOG_FILE, GITHUB_TOKEN)
                 st.success("✅ Feedback submitted successfully!")
             else:
                 st.error("❌ Please provide both operator name and feedback text.")
