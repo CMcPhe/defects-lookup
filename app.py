@@ -4,7 +4,7 @@ from datetime import datetime
 from github import Github
 import io
 import time
-from zoneinfo import zoneinfo
+from zoneinfo import ZoneInfo
 
 
 # -----------------------------
@@ -143,4 +143,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
