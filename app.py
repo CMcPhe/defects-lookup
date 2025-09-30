@@ -83,7 +83,7 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
 # Streamlit App
 # -----------------------------
 def main():
-    st.title("📊 Production Line Defect Lookup & Feedback")
+    st.title("📊 Buffering Line Setup Lookup & Feedback")
 
     file_path = "Defect Lookup.xlsx"
     df, version = load_defects(file_path)
@@ -116,7 +116,7 @@ def main():
     # Feedback
     # -----------------------------
     elif option == "Setup Feedback":
-        setup_number_fb = st.text_input("Enter Setup Number (if known):")
+        setup_number_fb = st.text_input("Enter Setup Number:")
         operator = st.text_input("Enter Operator Name:")
         feedback = st.text_area("Enter your feedback here:")
 
@@ -141,3 +141,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
