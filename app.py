@@ -112,7 +112,7 @@ def main():
                 st.warning("No defects found for this setup.")
             else:
                 st.subheader(f"Top Defects for Setup {setup_number}")
-                st.table(results)
+                st.table(results.reset_index(drop=True)) # Attempt to remove index numbers from printed table
 
     # -----------------------------
     # Feedback
@@ -143,5 +143,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
