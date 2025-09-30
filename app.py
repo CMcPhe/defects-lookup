@@ -112,7 +112,7 @@ def main():
                 st.warning("No defects found for this setup.")
             else:
                 st.subheader(f"Top Defects for Setup {setup_number}")
-                st.write(results.to_dict(orient="records"))  #writing as a dictionary instead of table to try to remove index numbers.
+                st.write(results)
 
     # -----------------------------
     # Feedback
@@ -143,6 +143,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
