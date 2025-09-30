@@ -1,146 +1,125 @@
 import streamlit as st
 import pandas as pd
-import datetime
-import base64
-from github import Github, GithubException
- 
-# -------------------
-# Configuration
-# -------------------
-DEFECTS_FILE = "Defect Lookup.xlsx"   # file with defect data
-LOG_FILE = "feedback_log.xlsx"        # file where feedback is stored
-REPO_NAME = "YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"  # update with your repo
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]          # stored in Streamlit secrets
- 
- 
-# -------------------
-# Load Defects Data
-# -------------------
-def load_defects():
+from datetime import datetime
+from github import Github
+import io
+import time
+
+# -----------------------------
+# Load defects file
+# -----------------------------
+def load_defects(file_path):
     try:
-        # Row 2 (B2) = revision date
-        revision_date = pd.read_excel(DEFECTS_FILE, header=None).iloc[1, 1]
- 
-        # Actual defect data starts row 3 → skip first 2 rows
-        df = pd.read_excel(DEFECTS_FILE, skiprows=2)
- 
-        # Normalize column names
-        df.columns = df.columns.str.strip()
- 
-        if "Setup Number" not in df.columns:
-            st.error("❌ 'Setup Number' column missing in defect file.")
-            return None, None
- 
-        return df, revision_date
+        df = pd.read_excel(file_path, header=1)
+        required_cols = ["Setup Number", "Defect Name", "Frequency", "Preventative Suggestion"]
+        for col in required_cols:
+            if col not in df.columns:
+                st.error(f"❌ Missing required column: {col}")
+                return None, None
+        raw_version = pd.read_excel(file_path, header=None).iloc[0, 1]
+        version = str(raw_version) if pd.notna(raw_version) else "Unknown"
+        return df, version
     except Exception as e:
         st.error(f"Error loading defects file: {e}")
         return None, None
- 
- 
-# -------------------
-# GitHub Write Feedback
-# -------------------
-def log_feedback_to_github(setup, operator, feedback, repo_name, log_file, token, retries=1):
-    try:
-        g = Github(token)
-        repo = g.get_repo(repo_name)
- 
-        # Current timestamp
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
- 
-        # Load existing log if present
+
+# -----------------------------
+# Defect lookup
+# -----------------------------
+def get_defects_for_setup(df, setup_number, top_n=6):
+    setup_number_input = setup_number.strip().lower()
+    df["SetupNorm"] = df["Setup Number"].astype(str).str.strip().str.lower()
+    filtered = df[df["SetupNorm"] == setup_number_input]
+    if filtered.empty:
+        return pd.DataFrame(columns=["Defect Name", "Frequency", "Preventative Suggestion"])
+    freq_order = {"High": 3, "Medium": 2, "Low": 1}
+    filtered["FreqOrder"] = filtered["Frequency"].map(freq_order).fillna(0)
+    filtered = filtered.sort_values(by="FreqOrder", ascending=False)
+    return filtered.head(top_n)[["Defect Name", "Frequency", "Preventative Suggestion"]]
+
+# -----------------------------
+# Feedback logging to GitHub
+# -----------------------------
+def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name, log_file, token, retries=1):
+    entry = {
+        "Setup Number": setup_number,
+        "Operator": operator_name,
+        "Feedback": feedback_text,
+        "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    g = Github(token)
+    repo = g.get_repo(repo_name)
+
+    last_exception = None
+    for attempt in range(retries + 1):
         try:
             contents = repo.get_contents(log_file)
-            df_existing = pd.read_excel(base64.b64decode(contents.content))
-        except GithubException:
-            df_existing = pd.DataFrame(columns=["Date", "Setup Number", "Operator", "Feedback"])
- 
-        # Append new row
-        new_entry = pd.DataFrame(
-            [[now, setup, operator, feedback]],
-            columns=["Date", "Setup Number", "Operator", "Feedback"]
-        )
-        df_updated = pd.concat([df_existing, new_entry], ignore_index=True)
- 
-        # Convert to bytes
-        from io import BytesIO
-        buffer = BytesIO()
-        df_updated.to_excel(buffer, index=False)
-        data = buffer.getvalue()
- 
-        # Try update with retries
-        for _ in range(retries + 1):
-            try:
-                contents = repo.get_contents(log_file)
-                repo.update_file(
-                    path=log_file,
-                    message=f"Add feedback for setup {setup}",
-                    content=data,
-                    sha=contents.sha,
-                    branch="main"
-                )
-                return True, None
-            except GithubException:
-                try:
-                    repo.create_file(
-                        path=log_file,
-                        message=f"Create feedback log and add feedback for setup {setup}",
-                        content=data,
-                        branch="main"
-                    )
-                    return True, None
-                except Exception as e2:
-                    error_msg = str(e2)
-        return False, error_msg
-    except Exception as e:
-        return False, str(e)
- 
- 
-# -------------------
+            existing = pd.read_excel(io.BytesIO(contents.decoded_content))
+            updated = pd.concat([existing, pd.DataFrame([entry])], ignore_index=True)
+            with io.BytesIO() as output:
+                updated.to_excel(output, index=False)
+                repo.update_file(log_file,
+                                 f"Update feedback log ({datetime.now().isoformat()})",
+                                 output.getvalue(),
+                                 contents.sha)
+            return True, ""
+        except Exception as e:
+            last_exception = e
+            time.sleep(1)
+            continue
+
+    try:
+        df_feedback = pd.DataFrame([entry])
+        with io.BytesIO() as output:
+            df_feedback.to_excel(output, index=False)
+            repo.create_file(log_file, f"Create feedback log ({datetime.now().isoformat()})", output.getvalue())
+        return True, ""
+    except Exception as e2:
+        last_exception = e2
+
+    return False, f"GitHub write error: {last_exception}"
+
+# -----------------------------
 # Streamlit App
-# -------------------
+# -----------------------------
 def main():
-    st.title("Defect Lookup & Feedback")
- 
-    # Initialize session state
-    for key in ["operator", "feedback", "setup_number", "option", "feedback_submitted"]:
-        if key not in st.session_state:
-            st.session_state[key] = "" if key != "feedback_submitted" else False
- 
-    # Load defects
-    defects_df, revision_date = load_defects()
- 
-    # Options
-    option = st.radio(
-        "Choose an option:",
-        ["Lookup Setup", "Setup Feedback"],
-        key="option"
-    )
- 
-    # -------------------
-    # Lookup Setup
-    # -------------------
-    if option == "Lookup Setup" and defects_df is not None:
-        setup_number = st.text_input("Enter Setup Number:", key="setup_number")
- 
+    st.title("📊 Production Line Defect Lookup & Feedback")
+
+    file_path = "Defect Lookup.xlsx"
+    df, version = load_defects(file_path)
+    if df is None:
+        st.stop()
+
+    st.sidebar.success(f"✅ Data last updated: {version}")
+
+    GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN")
+    REPO_NAME = st.secrets.get("REPO_NAME")
+    LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
+
+    # Landing choice
+    option = st.radio("Choose an option:", ["Lookup Setup", "Setup Feedback"])
+
+    # -----------------------------
+    # Lookup
+    # -----------------------------
+    if option == "Lookup Setup":
+        setup_number = st.text_input("Enter Setup Number:")
         if setup_number:
-            setup_number = setup_number.strip().lower()
-            results = defects_df[defects_df["Setup Number"].str.lower() == setup_number]
- 
-            if not results.empty:
-                st.subheader(f"Defects for Setup {setup_number.upper()}")
-                st.table(results[["Defect", "Description", "Prevention"]].head(6))
+            results = get_defects_for_setup(df, setup_number)
+            if results.empty:
+                st.warning("No defects found for this setup.")
             else:
-                st.warning(f"No defects found for setup '{setup_number}'.")
- 
-    # -------------------
-    # Setup Feedback
-    # -------------------
+                st.subheader(f"Top Defects for Setup {setup_number}")
+                st.table(results)
+
+    # -----------------------------
+    # Feedback
+    # -----------------------------
     elif option == "Setup Feedback":
-        setup_number_fb = st.text_input("Enter Setup Number (optional):", key="setup_number_fb")
-        operator = st.text_input("Operator Name:", key="operator")
-        feedback = st.text_area("Feedback:", key="feedback")
- 
+        setup_number_fb = st.text_input("Enter Setup Number (if known):")
+        operator = st.text_input("Enter Operator Name:")
+        feedback = st.text_area("Enter your feedback here:")
+
         if st.button("Submit Feedback"):
             if operator.strip() and feedback.strip():
                 success, error_msg = log_feedback_to_github(
@@ -153,30 +132,12 @@ def main():
                     retries=1
                 )
                 if success:
-                    st.session_state["feedback_submitted"] = True
-                    # Clear inputs
-                    st.session_state["operator"] = ""
-                    st.session_state["feedback"] = ""
-                    st.session_state["setup_number_fb"] = ""
-                    st.rerun()
+                    st.success("✅ Feedback submitted successfully!")
+                    st.rerun()  # reset page cleanly
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
                 st.error("❌ Please provide operator name and feedback.")
- 
-    # -------------------
-    # After rerun → show confirmation
-    # -------------------
-    if st.session_state.get("feedback_submitted", False):
-        st.success("✅ Feedback submitted successfully!")
-        st.session_state["feedback_submitted"] = False
- 
-    # -------------------
-    # Show revision date
-    # -------------------
-    if revision_date is not None:
-        st.markdown(f"*Data last updated: {revision_date}*")
- 
- 
+
 if __name__ == "__main__":
     main()
