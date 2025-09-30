@@ -4,6 +4,8 @@ from datetime import datetime
 from github import Github
 import io
 import time
+from zoneinfo import zoneinfo
+
 
 # -----------------------------
 # Load defects file
@@ -45,7 +47,7 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
         "Setup Number": setup_number,
         "Operator": operator_name,
         "Feedback": feedback_text,
-        "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "Date": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M:%S")
     }
     g = Github(token)
     repo = g.get_repo(repo_name)
@@ -141,3 +143,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
