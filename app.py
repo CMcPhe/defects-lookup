@@ -114,35 +114,48 @@ def main():
                 st.subheader(f"Top Defects for Setup {setup_number}")
                 st.write(results)
 
-    # -----------------------------
-    # Feedback
-    # -----------------------------
-    elif option == "Setup Feedback":
-        setup_number_fb = st.text_input("Enter Setup Number:")
-        operator = st.text_input("Enter Operator Name:")
-        feedback = st.text_area("Enter your feedback here:")
+# -----------------------------
+# Feedback submission
+# -----------------------------
+setup_number_fb = st.text_input("Enter Setup Number:", key="setup_number_fb")
+operator = st.text_input("Enter Operator Name:", key="operator")
+feedback = st.text_area("Enter your feedback here:", key="feedback")
 
-        if st.button("Submit Feedback"):
-            if operator.strip() and feedback.strip():
-                success, error_msg = log_feedback_to_github(
-                    setup_number_fb if setup_number_fb.strip() else "N/A",
-                    operator,
-                    feedback,
-                    REPO_NAME,
-                    LOG_FILE,
-                    GITHUB_TOKEN,
-                    retries=1
-                )
-                if success:
-                    st.success("✅ Feedback submitted successfully!")
-                    st.rerun()  # reset page cleanly
-                else:
-                    st.error(f"❌ Failed to submit feedback: {error_msg}")
-            else:
-                st.error("❌ Please provide operator name and feedback.")
+if st.button("Submit Feedback"):
+    if operator.strip() and feedback.strip():
+        success, error_msg = log_feedback_to_github(
+            setup_number_fb if setup_number_fb.strip() else "N/A",
+            operator,
+            feedback,
+            REPO_NAME,
+            LOG_FILE,
+            GITHUB_TOKEN,
+            retries=1
+        )
+        if success:
+            # Show confirmation first
+            st.success("✅ Feedback submitted successfully!")
+            st.experimental_rerun = False  # optional, for clarity
+            time.sleep(1.5)  # pause so user sees confirmation
+            
+            # Reset inputs
+            st.session_state.setup_number_fb = ""
+            st.session_state.operator = ""
+            st.session_state.feedback = ""
+            
+            # Reset to landing page
+            st.session_state.option = "Lookup Setup"
+            
+            # Rerun page to apply reset
+            st.experimental_rerun()
+        else:
+            st.error(f"❌ Failed to submit feedback: {error_msg}")
+    else:
+        st.error("❌ Please provide operator name and feedback.")
 
 if __name__ == "__main__":
     main()
+
 
 
 
