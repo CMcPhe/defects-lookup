@@ -38,7 +38,7 @@ def get_defects_for_setup(df, setup_number, top_n=6):
     return filtered.head(top_n)[["Defect Name", "Frequency", "Preventative Suggestion"]]
 
 # -----------------------------
-# Feedback logging to GitHub with retry
+# Feedback logging to GitHub
 # -----------------------------
 def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name, log_file, token, retries=1):
     entry = {
@@ -65,10 +65,9 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
             return True, ""
         except Exception as e:
             last_exception = e
-            time.sleep(1)  # brief wait before retry
+            time.sleep(1)
             continue
 
-    # If all attempts failed, try creating the file
     try:
         df_feedback = pd.DataFrame([entry])
         with io.BytesIO() as output:
@@ -93,59 +92,40 @@ def main():
 
     st.sidebar.success(f"✅ Data last updated: {version}")
 
-    # GitHub secrets
     GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN")
     REPO_NAME = st.secrets.get("REPO_NAME")
     LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
 
+    # Landing choice
+    option = st.radio("Choose an option:", ["Lookup Setup", "Setup Feedback"])
+
     # -----------------------------
-    # Initialize session state
+    # Lookup
     # -----------------------------
-    for key in ["operator", "feedback", "setup_number", "option"]:
-        if key not in st.session_state:
-            if key == "option":
-                st.session_state[key] = "Lookup Setup"
+    if option == "Lookup Setup":
+        setup_number = st.text_input("Enter Setup Number:")
+        if setup_number:
+            results = get_defects_for_setup(df, setup_number)
+            if results.empty:
+                st.warning("No defects found for this setup.")
             else:
-                st.session_state[key] = ""
+                st.subheader(f"Top Defects for Setup {setup_number}")
+                st.table(results)
 
     # -----------------------------
-    # Landing page option
+    # Feedback
     # -----------------------------
-    st.session_state["option"] = st.radio(
-        "Choose an option:",
-        ["Lookup Setup", "Setup Feedback"],
-        key="option"
-    )
-    st.session_state["setup_number"] = st.text_input(
-        "Enter Setup Number:", key="setup_number"
-    )
-
-    # -----------------------------
-    # Lookup Setup
-    # -----------------------------
-    if st.session_state["option"] == "Lookup Setup" and st.session_state["setup_number"]:
-        results = get_defects_for_setup(df, st.session_state["setup_number"])
-        if results.empty:
-            st.warning("No defects found for this setup.")
-        else:
-            st.subheader(f"Top Defects for Setup {st.session_state['setup_number']}")
-            st.table(results)
-
-    # -----------------------------
-    # Setup Feedback
-    # -----------------------------
-    if st.session_state["option"] == "Setup Feedback":
-        st.text_input("Enter Operator Name:", key="operator")
-        st.text_area("Enter your feedback here:", key="feedback")
+    elif option == "Setup Feedback":
+        setup_number_fb = st.text_input("Enter Setup Number (if known):")
+        operator = st.text_input("Enter Operator Name:")
+        feedback = st.text_area("Enter your feedback here:")
 
         if st.button("Submit Feedback"):
-            if (st.session_state["setup_number"].strip() and
-                st.session_state["operator"].strip() and
-                st.session_state["feedback"].strip()):
+            if operator.strip() and feedback.strip():
                 success, error_msg = log_feedback_to_github(
-                    st.session_state["setup_number"],
-                    st.session_state["operator"],
-                    st.session_state["feedback"],
+                    setup_number_fb if setup_number_fb.strip() else "N/A",
+                    operator,
+                    feedback,
                     REPO_NAME,
                     LOG_FILE,
                     GITHUB_TOKEN,
@@ -153,15 +133,11 @@ def main():
                 )
                 if success:
                     st.success("✅ Feedback submitted successfully!")
-                    # Reset all fields to landing page
-                    st.session_state["operator"] = ""
-                    st.session_state["feedback"] = ""
-                    st.session_state["setup_number"] = ""
-                    st.session_state["option"] = "Lookup Setup"
+                    st.experimental_rerun()  # reset page cleanly
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
-                st.error("❌ Please provide setup number, operator name, and feedback.")
+                st.error("❌ Please provide operator name and feedback.")
 
 if __name__ == "__main__":
     main()
