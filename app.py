@@ -133,7 +133,7 @@ def main():
                 )
                 if success:
                     st.success("✅ Feedback submitted successfully!")
-                    st.experimental_rerun()  # reset page cleanly
+                    st.rerun()  # reset page cleanly
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
@@ -141,3 +141,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
