@@ -180,13 +180,13 @@ def main():
         st.session_state.feedback = ""
         st.session_state.option = "Lookup Setup"
         st.session_state.reset_flag = False
-        st.experimental_rerun()
 
 
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
