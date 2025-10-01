@@ -85,33 +85,30 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
 # Streamlit App
 # -----------------------------
 def main():
-    st.title("📊 Buffering Line Setup Lookup & Feedback")
+    st.title("📊 Buffering Line Setup & Feedback")
 
     # -----------------------------
-    # Session state initialization
+    # Session state defaults
     # -----------------------------
-    defaults = {
+    for key, default in {
         "setup_number_fb": "",
         "operator": "",
         "feedback": "",
         "option": "Lookup Setup",
-        "reset_flag": False
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+        "submitted": False
+    }.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
 
     # -----------------------------
-    # Load defect data
+    # Load defects data
     # -----------------------------
-    file_path = "Defect Lookup.xlsx"
-    df, version = load_defects(file_path)
+    df, version = load_defects("Defect Lookup.xlsx")
     if df is None:
         st.stop()
 
     st.sidebar.success(f"✅ Data last updated: {version}")
 
-    # Secrets
     GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN")
     REPO_NAME = st.secrets.get("REPO_NAME")
     LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
@@ -126,7 +123,7 @@ def main():
     )
 
     # -----------------------------
-    # Lookup section
+    # Lookup
     # -----------------------------
     if option == "Lookup Setup":
         setup_number = st.text_input("Enter Setup Number:")
@@ -139,12 +136,10 @@ def main():
                 st.table(results)
 
     # -----------------------------
-    # Feedback section
+    # Feedback
     # -----------------------------
     elif option == "Setup Feedback":
-        setup_number_fb = st.text_input(
-            "Enter Setup Number:", key="setup_number_fb"
-        )
+        setup_number_fb = st.text_input("Enter Setup Number:", key="setup_number_fb")
         operator = st.text_input("Enter Operator Name:", key="operator")
         feedback = st.text_area("Enter your feedback here:", key="feedback")
 
@@ -160,32 +155,32 @@ def main():
                     retries=1
                 )
                 if success:
-                    st.success("✅ Feedback submitted successfully!")
-                    time.sleep(1.5)  # let user see confirmation
-
-                    # Instead of updating immediately, set a flag
-                    st.session_state.reset_flag = True
-                    st.experimental_rerun()
+                    st.session_state.submitted = True
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
                 st.error("❌ Please provide operator name and feedback.")
 
     # -----------------------------
-    # Handle reset after rerun
+    # Handle confirmation & reset
     # -----------------------------
-    if st.session_state.reset_flag:
-        st.session_state.setup_number_fb = ""
-        st.session_state.operator = ""
-        st.session_state.feedback = ""
-        st.session_state.option = "Lookup Setup"
-        st.session_state.reset_flag = False
+    if st.session_state.submitted:
+        st.success("✅ Feedback submitted successfully!")
+        time.sleep(1.5)  # show confirmation briefly
 
-
-
+        # Reset all inputs and go to landing page
+        st.session_state.update({
+            "setup_number_fb": "",
+            "operator": "",
+            "feedback": "",
+            "option": "Lookup Setup",
+            "submitted": False
+        })
+        # No rerun needed; widgets update automatically
 
 if __name__ == "__main__":
     main()
+
 
 
 
