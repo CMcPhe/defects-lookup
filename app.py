@@ -84,24 +84,8 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
 # -----------------------------
 # Streamlit App
 # -----------------------------
-
 def main():
     st.title("📊 Buffering Line Setup & Feedback")
-
-    # -----------------------------
-    # Session state defaults
-    # -----------------------------
-    defaults = {
-        "setup_number_fb": "",
-        "operator": "",
-        "feedback": "",
-        "option": "Lookup Setup",
-        "submitted": False,
-        "reset_done": False
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
 
     # -----------------------------
     # Load defect data
@@ -121,8 +105,7 @@ def main():
     # -----------------------------
     option = st.radio(
         "Choose an option:",
-        ["Lookup Setup", "Setup Feedback"],
-        key="option"
+        ["Lookup Setup", "Setup Feedback"]
     )
 
     # -----------------------------
@@ -139,53 +122,38 @@ def main():
                 st.table(results)
 
     # -----------------------------
-    # Feedback section
+    # Feedback section using st.form
     # -----------------------------
     elif option == "Setup Feedback":
-        setup_number_fb = st.text_input("Enter Setup Number:", key="setup_number_fb")
-        operator = st.text_input("Enter Operator Name:", key="operator")
-        feedback = st.text_area("Enter your feedback here:", key="feedback")
+        with st.form("feedback_form", clear_on_submit=True):
+            setup_number_fb = st.text_input("Enter Setup Number:")
+            operator = st.text_input("Enter Operator Name:")
+            feedback = st.text_area("Enter your feedback here:")
 
-        if st.button("Submit Feedback"):
-            if operator.strip() and feedback.strip():
-                success, error_msg = log_feedback_to_github(
-                    setup_number_fb if setup_number_fb.strip() else "N/A",
-                    operator,
-                    feedback,
-                    REPO_NAME,
-                    LOG_FILE,
-                    GITHUB_TOKEN,
-                    retries=1
-                )
-                if success:
-                    # Step 1: mark as submitted; do NOT reset widget keys yet
-                    st.session_state.submitted = True
+            submitted = st.form_submit_button("Submit Feedback")
+
+            if submitted:
+                if operator.strip() and feedback.strip():
+                    success, error_msg = log_feedback_to_github(
+                        setup_number_fb if setup_number_fb.strip() else "N/A",
+                        operator,
+                        feedback,
+                        REPO_NAME,
+                        LOG_FILE,
+                        GITHUB_TOKEN,
+                        retries=1
+                    )
+                    if success:
+                        st.success("✅ Feedback submitted successfully!")
+                    else:
+                        st.error(f"❌ Failed to submit feedback: {error_msg}")
                 else:
-                    st.error(f"❌ Failed to submit feedback: {error_msg}")
-            else:
-                st.error("❌ Please provide operator name and feedback.")
-
-    # -----------------------------
-    # Confirmation & safe reset
-    # -----------------------------
-    if st.session_state.get("submitted", False):
-        # Show success message
-        st.success("✅ Feedback submitted successfully!")
-
-        # Step 2: safely reset all inputs and landing page only once
-        if not st.session_state.get("reset_done", False):
-            st.session_state.setup_number_fb = ""
-            st.session_state.operator = ""
-            st.session_state.feedback = ""
-            st.session_state.option = "Lookup Setup"
-            st.session_state.submitted = False
-            st.session_state.reset_done = True
-
-
+                    st.error("❌ Please provide operator name and feedback.")
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
