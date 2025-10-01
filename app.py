@@ -158,29 +158,30 @@ def main():
                     retries=1
                 )
                 if success:
-                # Show confirmation first
+                    # Show confirmation first
                     st.success("✅ Feedback submitted successfully!")
-                    time.sleep(1.5)  # Give user time to see confirmation
+                    time.sleep(1.5)  # let user see confirmation
 
-                # Reset inputs + landing page in one update
+                    # Reset inputs + landing page in one update
                     st.session_state.update({
-                    "setup_number_fb": "",
-                    "operator": "",
-                    "feedback": "",
-                    "option": "Lookup Setup"
-                })
+                        "setup_number_fb": "",
+                        "operator": "",
+                        "feedback": "",
+                        "option": "Lookup Setup"
+                    })
 
-                # Apply resets
-                st.experimental_rerun()
-
+                    # Apply resets
+                    st.experimental_rerun()
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
                 st.error("❌ Please provide operator name and feedback.")
 
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
