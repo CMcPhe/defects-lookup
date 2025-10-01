@@ -87,6 +87,21 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
 def main():
     st.title("📊 Buffering Line Setup Lookup & Feedback")
 
+    # -----------------------------
+    # Session state initialization
+    # -----------------------------
+    if "setup_number_fb" not in st.session_state:
+        st.session_state.setup_number_fb = ""
+    if "operator" not in st.session_state:
+        st.session_state.operator = ""
+    if "feedback" not in st.session_state:
+        st.session_state.feedback = ""
+    if "option" not in st.session_state:
+        st.session_state.option = "Lookup Setup"
+
+    # -----------------------------
+    # Load defect data
+    # -----------------------------
     file_path = "Defect Lookup.xlsx"
     df, version = load_defects(file_path)
     if df is None:
@@ -94,15 +109,22 @@ def main():
 
     st.sidebar.success(f"✅ Data last updated: {version}")
 
+    # Secrets
     GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN")
     REPO_NAME = st.secrets.get("REPO_NAME")
     LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
 
+    # -----------------------------
     # Landing choice
-    option = st.radio("Choose an option:", ["Lookup Setup", "Setup Feedback"])
+    # -----------------------------
+    option = st.radio(
+        "Choose an option:",
+        ["Lookup Setup", "Setup Feedback"],
+        key="option"
+    )
 
     # -----------------------------
-    # Lookup
+    # Lookup section
     # -----------------------------
     if option == "Lookup Setup":
         setup_number = st.text_input("Enter Setup Number:")
@@ -112,49 +134,53 @@ def main():
                 st.warning("No defects found for this setup.")
             else:
                 st.subheader(f"Top Defects for Setup {setup_number}")
-                st.write(results)
+                st.table(results)
 
-# -----------------------------
-# Feedback submission
-# -----------------------------
-setup_number_fb = st.text_input("Enter Setup Number:", key="setup_number_fb")
-operator = st.text_input("Enter Operator Name:", key="operator")
-feedback = st.text_area("Enter your feedback here:", key="feedback")
-
-if st.button("Submit Feedback"):
-    if operator.strip() and feedback.strip():
-        success, error_msg = log_feedback_to_github(
-            setup_number_fb if setup_number_fb.strip() else "N/A",
-            operator,
-            feedback,
-            REPO_NAME,
-            LOG_FILE,
-            GITHUB_TOKEN,
-            retries=1
+    # -----------------------------
+    # Feedback section
+    # -----------------------------
+    elif option == "Setup Feedback":
+        setup_number_fb = st.text_input(
+            "Enter Setup Number:", key="setup_number_fb"
         )
-        if success:
-            # Show confirmation first
-            st.success("✅ Feedback submitted successfully!")
-            st.experimental_rerun = False  # optional, for clarity
-            time.sleep(1.5)  # pause so user sees confirmation
-            
-            # Reset inputs
-            st.session_state.setup_number_fb = ""
-            st.session_state.operator = ""
-            st.session_state.feedback = ""
-            
-            # Reset to landing page
-            st.session_state.option = "Lookup Setup"
-            
-            # Rerun page to apply reset
-            st.experimental_rerun()
-        else:
-            st.error(f"❌ Failed to submit feedback: {error_msg}")
-    else:
-        st.error("❌ Please provide operator name and feedback.")
+        operator = st.text_input("Enter Operator Name:", key="operator")
+        feedback = st.text_area("Enter your feedback here:", key="feedback")
+
+        if st.button("Submit Feedback"):
+            if operator.strip() and feedback.strip():
+                success, error_msg = log_feedback_to_github(
+                    setup_number_fb if setup_number_fb.strip() else "N/A",
+                    operator,
+                    feedback,
+                    REPO_NAME,
+                    LOG_FILE,
+                    GITHUB_TOKEN,
+                    retries=1
+                )
+                if success:
+                    # Show confirmation first
+                    st.success("✅ Feedback submitted successfully!")
+                    time.sleep(1.5)  # Give user time to see confirmation
+
+                    # Reset inputs
+                    st.session_state.setup_number_fb = ""
+                    st.session_state.operator = ""
+                    st.session_state.feedback = ""
+
+                    # Return to landing page
+                    st.session_state.option = "Lookup Setup"
+
+                    # Apply resets
+                    st.experimental_rerun()
+                else:
+                    st.error(f"❌ Failed to submit feedback: {error_msg}")
+            else:
+                st.error("❌ Please provide operator name and feedback.")
+
 
 if __name__ == "__main__":
     main()
+
 
 
 
