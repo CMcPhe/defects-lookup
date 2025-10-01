@@ -90,14 +90,16 @@ def main():
     # -----------------------------
     # Session state initialization
     # -----------------------------
-    if "setup_number_fb" not in st.session_state:
-        st.session_state.setup_number_fb = ""
-    if "operator" not in st.session_state:
-        st.session_state.operator = ""
-    if "feedback" not in st.session_state:
-        st.session_state.feedback = ""
-    if "option" not in st.session_state:
-        st.session_state.option = "Lookup Setup"
+    defaults = {
+        "setup_number_fb": "",
+        "operator": "",
+        "feedback": "",
+        "option": "Lookup Setup",
+        "reset_flag": False
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
     # -----------------------------
     # Load defect data
@@ -158,29 +160,34 @@ def main():
                     retries=1
                 )
                 if success:
-                    # Show confirmation first
                     st.success("✅ Feedback submitted successfully!")
                     time.sleep(1.5)  # let user see confirmation
 
-                    # Reset inputs + landing page in one update
-                    st.session_state.update({
-                        "setup_number_fb": "",
-                        "operator": "",
-                        "feedback": "",
-                        "option": "Lookup Setup"
-                    })
-
-                    # Apply resets
+                    # Instead of updating immediately, set a flag
+                    st.session_state.reset_flag = True
                     st.experimental_rerun()
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
             else:
                 st.error("❌ Please provide operator name and feedback.")
 
+    # -----------------------------
+    # Handle reset after rerun
+    # -----------------------------
+    if st.session_state.reset_flag:
+        st.session_state.setup_number_fb = ""
+        st.session_state.operator = ""
+        st.session_state.feedback = ""
+        st.session_state.option = "Lookup Setup"
+        st.session_state.reset_flag = False
+        st.experimental_rerun()
+
+
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
