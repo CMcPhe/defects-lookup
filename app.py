@@ -96,7 +96,8 @@ def main():
         "operator": "",
         "feedback": "",
         "option": "Lookup Setup",
-        "submitted": False
+        "submitted": False,
+        "reset_done": False
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -157,7 +158,7 @@ def main():
                     retries=1
                 )
                 if success:
-                    # Mark as submitted to show confirmation
+                    # Step 1: mark as submitted; do NOT reset widget keys yet
                     st.session_state.submitted = True
                 else:
                     st.error(f"❌ Failed to submit feedback: {error_msg}")
@@ -165,26 +166,27 @@ def main():
                 st.error("❌ Please provide operator name and feedback.")
 
     # -----------------------------
-    # Handle confirmation and reset
+    # Confirmation & safe reset
     # -----------------------------
-    if st.session_state.submitted:
+    if st.session_state.get("submitted", False):
         # Show success message
         st.success("✅ Feedback submitted successfully!")
 
-        # Reset inputs and landing page
-        st.session_state.update({
-            "setup_number_fb": "",
-            "operator": "",
-            "feedback": "",
-            "option": "Lookup Setup",
-            "submitted": False
-        })
-        # Widgets will update automatically on next render; no rerun needed
+        # Step 2: safely reset all inputs and landing page only once
+        if not st.session_state.get("reset_done", False):
+            st.session_state.setup_number_fb = ""
+            st.session_state.operator = ""
+            st.session_state.feedback = ""
+            st.session_state.option = "Lookup Setup"
+            st.session_state.submitted = False
+            st.session_state.reset_done = True
+
 
 
 
 if __name__ == "__main__":
     main()
+
 
 
 
