@@ -84,126 +84,7 @@ def log_feedback_to_github(setup_number, operator_name, feedback_text, repo_name
 # -----------------------------
 # Streamlit App
 # -----------------------------
-def main():
-    st.title("📊 Buffering Line Setup & Feedback")
 
-    # -----------------------------
-    # Session state defaults
-    # -----------------------------
-    defaults = {
-        "setup_number_fb": "",
-        "operator": "",
-        "feedback": "",
-        "option": "Lookup Setup",
-        "submitted": False
-    }
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-    # -----------------------------
-    # Load defect data
-    # -----------------------------
-    df, version = load_defects("Defect Lookup.xlsx")
-    if df is None:
-        st.stop()
-
-    st.sidebar.success(f"✅ Data last updated: {version}")
-
-    GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN")
-    REPO_NAME = st.secrets.get("REPO_NAME")
-    LOG_FILE = st.secrets.get("LOG_FILE", "feedback_log.xlsx")
-
-    # -----------------------------
-    # Landing choice
-    # -----------------------------
-    option = st.radio(
-        "Choose an option:",
-        ["Lookup Setup", "Setup Feedback"],
-        key="option"
-    )
-
-    # -----------------------------
-    # Lookup section
-    # -----------------------------
-    if option == "Lookup Setup":
-        setup_number = st.text_input("Enter Setup Number:")
-        if setup_number:
-            results = get_defects_for_setup(df, setup_number)
-            if results.empty:
-                st.warning("No defects found for this setup.")
-            else:
-                st.subheader(f"Top Defects for Setup {setup_number}")
-                st.table(results)
-
-    # -----------------------------
-    # Feedback section
-    # -----------------------------
-    elif option == "Setup Feedback":
-        setup_number_fb = st.text_input("Enter Setup Number:", key="setup_number_fb")
-        operator = st.text_input("Enter Operator Name:", key="operator")
-        feedback = st.text_area("Enter your feedback here:", key="feedback")
-
-        if st.button("Submit Feedback"):
-            if operator.strip() and feedback.strip():
-                success, error_msg = log_feedback_to_github(
-                    setup_number_fb if setup_number_fb.strip() else "N/A",
-                    operator,
-                    feedback,
-                    REPO_NAME,
-                    LOG_FILE,
-                    GITHUB_TOKEN,
-                    retries=1
-                )
-                if success:
-                    # Mark as submitted to show confirmation
-                    st.session_state.submitted = True
-                else:
-                    st.error(f"❌ Failed to submit feedback: {error_msg}")
-            else:
-                st.error("❌ Please provide operator name and feedback.")
-
-    # -----------------------------
-    # Handle confirmation and reset
-    # -----------------------------
-    if st.session_state.submitted:
-        # Show success message
-        st.success("✅ Feedback submitted successfully!")
-
-        # Reset inputs and landing page
-        st.session_state.update({
-            "setup_number_fb": "",
-            "operator": "",
-            "feedback": "",
-            "option": "Lookup Setup",
-            "submitted": False
-        })
-        # Widgets will update automatically on next render; no rerun needed
-Sent from my iPhone
-
-
-On Oct 1, 2025, at 2:54 PM, McPherson, Cameron <Cameron.McPherson@aflglobal.com> wrote:
- 
-File "/mount/src/defects-lookup/app.py", line 188, in <module>
-File "/mount/src/defects-lookup/app.py", line 168, in main
-    st.success("✅ Feedback submitted successfully!")
-                ^^^^^^^^^^^^^^^^^^^^
- 
- 
-From: Cameron McPherson <cameronlmcpherson@gmail.com> 
-Sent: Wednesday, October 1, 2025 2:53 PM
-To: McPherson, Cameron <Cameron.McPherson@aflglobal.com>
-Subject: Re: baseline code with timezone fix
- 
-def main(): st. title("📊 Buffering Line Setup & Feedback") # ----------------------------- # Session state defaults # ----------------------------- for key, default in { "setup_number_fb": "", "operator": "", "feedback": "", "option": "Lookup
-ZjQcmQRYFpfptBannerStart
-This Message Is From an External Sender 
-This message came from outside your organization. 
-    Report Suspicious     
-
-
-
-ZjQcmQRYFpfptBannerEnd
 def main():
     st.title("📊 Buffering Line Setup & Feedback")
  
@@ -301,6 +182,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
